@@ -1,8 +1,10 @@
-import Ico from "./ico.js";
-import Png from "./png.js";
+import { Ico } from "./ico";
+import { Png } from "./png";
 
-class Bundle {
-  constructor(canvas) {
+export class Bundle {
+  private readonly canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
 
@@ -21,5 +23,3 @@ class Bundle {
     };
   }
 }
-
-export default Bundle;

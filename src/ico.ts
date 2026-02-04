@@ -1,11 +1,13 @@
-import Resize from "./resize.js";
+import { Resize } from "./resize";
 
-class Ico {
-  constructor(canvas) {
+export class Ico {
+  private canvas: HTMLCanvasElement;
+
+  constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
   }
 
-  generate(sizes = [16, 32, 48]) {
+  generate(sizes: number[] = [16, 32, 48]): string {
     const canvasMaster = new Resize(this.canvas).generate(128, 128);
     const iconDirectoryHeader = this.createIconDirectoryHeader(sizes.length);
     let iconDirectoryEntries = "";
@@ -14,10 +16,13 @@ class Ico {
     for (let i = 0; i < sizes.length; i++) {
       const size = sizes[i];
       const canvas = new Resize(canvasMaster).generate(size, size);
-      const context = canvas.getContext("2d");
       const width = canvas.width;
       const height = canvas.height;
-      const imageData = context.getImageData(0, 0, width, height);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error("Failed to obtain 2D rendering context from canvas");
+      }
+      const imageData = ctx.getImageData(0, 0, width, height);
       const bitmapInfoHeader = this.createBitmapInfoHeader(width, height);
       const bitmapImageData = this.createBitmapImageData(canvas);
       const bitmapSize = bitmapInfoHeader.length + bitmapImageData.length;
@@ -26,7 +31,7 @@ class Ico {
         width,
         height,
         bitmapSize,
-        bitmapOffset
+        bitmapOffset,
       );
       bitmapData += bitmapInfoHeader + bitmapImageData;
     }
@@ -39,7 +44,7 @@ class Ico {
   /**
    * Calculates the location to the bitmap entry.
    */
-  calculateBitmapOffset(sizes, entry) {
+  calculateBitmapOffset(sizes: number[], entry: number): number {
     let offset = 6; // icon header size
     offset += 16 * sizes.length; // icon entry header size
 
@@ -53,8 +58,11 @@ class Ico {
     return offset;
   }
 
-  createBitmapImageData(canvas) {
+  createBitmapImageData(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to obtain 2D rendering context from canvas");
+    }
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const bitmapPixelData = new Uint32Array(imageData.data.buffer);
     const bitmapBuffer = bitmapPixelData.reverse().buffer;
@@ -65,8 +73,11 @@ class Ico {
     return binary;
   }
 
-  canvasToBitmap(canvas) {
+  canvasToBitmap(canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error("Failed to obtain 2D rendering context from canvas");
+    }
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const rgbaData8 = imageData.data;
     const bgraData8 = new Uint8ClampedArray(imageData.data.length);
@@ -95,7 +106,7 @@ class Ico {
     return bgraData32Rotated.buffer;
   }
 
-  createIconDirectoryHeader(numImages) {
+  createIconDirectoryHeader(numImages: number): string {
     const buffer = new ArrayBuffer(6);
     const view = new DataView(buffer);
     view.setUint16(0, 0, true); // Reserved. Must always be 0.
@@ -104,7 +115,12 @@ class Ico {
     return this.arrayBufferToBinary(buffer);
   }
 
-  createIconDirectoryEntry(width, height, size, offset) {
+  createIconDirectoryEntry(
+    width: number,
+    height: number,
+    size: number,
+    offset: number,
+  ): string {
     const buffer = new ArrayBuffer(16);
     const view = new DataView(buffer);
     view.setUint8(0, width); // Pixel width (0..256). 0 = 256 pixels.
@@ -118,7 +134,7 @@ class Ico {
     return this.arrayBufferToBinary(buffer);
   }
 
-  createBitmapInfoHeader(width, height) {
+  createBitmapInfoHeader(width: number, height: number): string {
     const buffer = new ArrayBuffer(40);
     const view = new DataView(buffer);
     view.setUint32(0, 40, true); // Header size (40 bytes).
@@ -135,7 +151,7 @@ class Ico {
     return this.arrayBufferToBinary(buffer);
   }
 
-  arrayBufferToBinary(buffer) {
+  arrayBufferToBinary(buffer: ArrayBuffer): string {
     let binary = "";
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
@@ -145,9 +161,9 @@ class Ico {
     return binary;
   }
 
-  Uint8ArrayToBinary(Uint8Array) {
+  Uint8ArrayToBinary(data: Uint8Array): string {
     let binary = "";
-    const bytes = Uint8Array;
+    const bytes = data;
     const len = bytes.byteLength;
     for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i]);
@@ -155,5 +171,3 @@ class Ico {
     return binary;
   }
 }
-
-export default Ico;
