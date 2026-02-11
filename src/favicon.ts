@@ -10,8 +10,8 @@ export class FaviconJS {
     this.canvas = canvas;
   }
 
-  bundle() {
-    return new Bundle(this.canvas).generate();
+  bundle(sizes: number[]) {
+    return new Bundle(this.canvas).generate(sizes);
   }
 
   ico(sizes: number[]): string {
