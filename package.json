@@ -1,7 +1,7 @@
 {
   "name": "@rikublock/favicon.js",
   "description": "Favicon.js is a lightweight library that allows you to create an ICO formatted favicon from a canvas element.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "author": {
     "name": "Riku Block",
     "email": "riku.block@gmail.com",
