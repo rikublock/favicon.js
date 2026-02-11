@@ -7,7 +7,15 @@ export class Png {
     this.canvas = canvas;
   }
 
-  generate(size: number): string {
-    return new Resize(this.canvas).generate(size, size).toDataURL();
+  async generate(size: number): Promise<Blob> {
+    return new Promise<Blob>((resolve, reject) => {
+      new Resize(this.canvas).generate(size, size).toBlob((blob) => {
+        if (!blob) {
+          return reject(new Error("Failed to generate blob"));
+        }
+
+        resolve(blob);
+      }, "image/png");
+    });
   }
 }

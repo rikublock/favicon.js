@@ -7,11 +7,11 @@ export class Ico {
     this.canvas = canvas;
   }
 
-  generate(sizes: number[] = [16, 32, 48]): string {
+  async generate(sizes: number[] = [16, 32, 48]): Promise<Blob> {
     const canvasMaster = new Resize(this.canvas).generate(128, 128);
     const iconDirectoryHeader = this.createIconDirectoryHeader(sizes.length);
-    let iconDirectoryEntries = "";
-    let bitmapData = "";
+    let iconDirectoryEntries = new Uint8Array();
+    let bitmapData = new Uint8Array();
 
     for (let i = 0; i < sizes.length; i++) {
       const size = sizes[i];
@@ -27,18 +27,24 @@ export class Ico {
       const bitmapImageData = this.createBitmapImageData(canvas);
       const bitmapSize = bitmapInfoHeader.length + bitmapImageData.length;
       const bitmapOffset = this.calculateBitmapOffset(sizes, i);
-      iconDirectoryEntries += this.createIconDirectoryEntry(
-        width,
-        height,
-        bitmapSize,
-        bitmapOffset,
-      );
-      bitmapData += bitmapInfoHeader + bitmapImageData;
+      iconDirectoryEntries = this._concatBytes([
+        iconDirectoryEntries,
+        this.createIconDirectoryEntry(width, height, bitmapSize, bitmapOffset),
+      ]);
+      bitmapData = this._concatBytes([
+        bitmapData,
+        bitmapInfoHeader,
+        bitmapImageData,
+      ]);
     }
 
-    const binary = iconDirectoryHeader + iconDirectoryEntries + bitmapData;
-    const base64 = "data:image/x-icon;base64," + btoa(binary);
-    return base64;
+    const data = this._concatBytes([
+      iconDirectoryHeader,
+      iconDirectoryEntries,
+      bitmapData,
+    ]);
+
+    return new Blob([data], { type: "image/x-icon" });
   }
 
   /**
@@ -58,7 +64,7 @@ export class Ico {
     return offset;
   }
 
-  createBitmapImageData(canvas: HTMLCanvasElement) {
+  createBitmapImageData(canvas: HTMLCanvasElement): Uint8Array<ArrayBuffer> {
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("Failed to obtain 2D rendering context from canvas");
@@ -68,12 +74,11 @@ export class Ico {
     const bitmapBuffer = bitmapPixelData.reverse().buffer;
     const bitmapMask = new Uint8Array((canvas.width * canvas.height * 2) / 8);
     bitmapMask.fill(0);
-    let binary = this.arrayBufferToBinary(this.canvasToBitmap(canvas));
-    binary += this.Uint8ArrayToBinary(bitmapMask);
-    return binary;
+    const data = this._concatBytes([this.canvasToBitmap(canvas), bitmapMask]);
+    return data;
   }
 
-  canvasToBitmap(canvas: HTMLCanvasElement) {
+  canvasToBitmap(canvas: HTMLCanvasElement): Uint8Array<ArrayBuffer> {
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("Failed to obtain 2D rendering context from canvas");
@@ -103,16 +108,16 @@ export class Ico {
       const pixel = bgraData32[i];
       bgraData32Rotated[indexRotated] = pixel;
     }
-    return bgraData32Rotated.buffer;
+    return new Uint8Array(bgraData32Rotated.buffer);
   }
 
-  createIconDirectoryHeader(numImages: number): string {
+  createIconDirectoryHeader(numImages: number): Uint8Array<ArrayBuffer> {
     const buffer = new ArrayBuffer(6);
     const view = new DataView(buffer);
     view.setUint16(0, 0, true); // Reserved. Must always be 0.
     view.setUint16(2, 1, true); // Specifies type. 1 = ICO.
     view.setUint16(4, numImages, true); // Number of images.
-    return this.arrayBufferToBinary(buffer);
+    return new Uint8Array(buffer);
   }
 
   createIconDirectoryEntry(
@@ -120,7 +125,7 @@ export class Ico {
     height: number,
     size: number,
     offset: number,
-  ): string {
+  ): Uint8Array<ArrayBuffer> {
     const buffer = new ArrayBuffer(16);
     const view = new DataView(buffer);
     view.setUint8(0, width); // Pixel width (0..256). 0 = 256 pixels.
@@ -131,10 +136,13 @@ export class Ico {
     view.setUint16(6, 32, true); // Specifies bits per pixel.
     view.setUint32(8, size, true); // Image size (bytes).
     view.setUint32(12, offset, true); // Offset to BMP of PNG.
-    return this.arrayBufferToBinary(buffer);
+    return new Uint8Array(buffer);
   }
 
-  createBitmapInfoHeader(width: number, height: number): string {
+  createBitmapInfoHeader(
+    width: number,
+    height: number,
+  ): Uint8Array<ArrayBuffer> {
     const buffer = new ArrayBuffer(40);
     const view = new DataView(buffer);
     view.setUint32(0, 40, true); // Header size (40 bytes).
@@ -148,26 +156,25 @@ export class Ico {
     view.setUint32(28, 0, true); // Vertical resolution.
     view.setUint32(32, 0, true); // Number of colors. 0 = default.
     view.setUint32(36, 0, true); // Number of important colors. 0 =  all
-    return this.arrayBufferToBinary(buffer);
+    return new Uint8Array(buffer);
   }
 
-  arrayBufferToBinary(buffer: ArrayBuffer): string {
-    let binary = "";
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return binary;
-  }
+  private _concatBytes(
+    chunks: (ArrayBuffer | Uint8Array<ArrayBuffer>)[],
+  ): Uint8Array<ArrayBuffer> {
+    const arrays = chunks.map((c) =>
+      c instanceof Uint8Array ? c : new Uint8Array(c),
+    );
 
-  Uint8ArrayToBinary(data: Uint8Array): string {
-    let binary = "";
-    const bytes = data;
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const total = arrays.reduce((n, a) => n + a.length, 0);
+    const result = new Uint8Array(total);
+
+    let offset = 0;
+    for (const a of arrays) {
+      result.set(a, offset);
+      offset += a.length;
     }
-    return binary;
+
+    return result;
   }
 }

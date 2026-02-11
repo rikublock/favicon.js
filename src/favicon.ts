@@ -1,4 +1,4 @@
-import { Bundle } from "./bundle";
+import { Bundle, type BundleResult } from "./bundle";
 import { Ico } from "./ico";
 import { Png } from "./png";
 import { Resize } from "./resize";
@@ -10,15 +10,15 @@ export class FaviconJS {
     this.canvas = canvas;
   }
 
-  bundle(sizes: number[]) {
+  async bundle(sizes: number[]): Promise<BundleResult> {
     return new Bundle(this.canvas).generate(sizes);
   }
 
-  ico(sizes: number[]): string {
+  async ico(sizes: number[]): Promise<Blob> {
     return new Ico(this.canvas).generate(sizes);
   }
 
-  png(size: number): string {
+  async png(size: number): Promise<Blob> {
     return new Png(this.canvas).generate(size);
   }
 
